@@ -1,0 +1,23 @@
+# 秘密の値と鍵(コミットしない)
+*.jks
+*.keystore
+local.properties
+.dev.vars
+.env
+
+# サーバー
+node_modules/
+.wrangler/
+worker-configuration.d.ts
+
+# Android
+.gradle/
+build/
+.idea/
+*.iml
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+.DS_Store

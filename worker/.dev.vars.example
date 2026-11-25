@@ -1,0 +1,4 @@
+# 手元で `npm run dev` を使うときだけ必要。
+# このファイルを .dev.vars という名前でコピーして値を入れる(.dev.vars はコミットしない)。
+ANTHROPIC_API_KEY=
+SESSION_SECRET=

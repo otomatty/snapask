@@ -1,0 +1,16 @@
+# このファイルを local.properties という名前でコピーし、値を入れる。
+# local.properties はコミットしない(.gitignore 済み)。
+# Android Studio が追記する sdk.dir の行はそのまま残してよい。
+
+# 中継サーバーのURL(末尾の / は付けない)
+SNAPASK_API_BASE_URL=https://snapask-api.<あなたのサブドメイン>.workers.dev
+
+# Google Cloud で作った「ウェブ アプリケーション」のクライアントID
+# (Android 用のクライアントIDではない。サーバーの GOOGLE_WEB_CLIENT_ID と同じ値)
+SNAPASK_GOOGLE_WEB_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
+
+# 署名に使う鍵(android/ からの相対パス)。docs/SETUP.md の手順で作成する。
+SNAPASK_KEYSTORE_FILE=snapask.jks
+SNAPASK_KEYSTORE_PASSWORD=
+SNAPASK_KEY_ALIAS=snapask
+SNAPASK_KEY_PASSWORD=

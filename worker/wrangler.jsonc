@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "snapask-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-24",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+  },
+
+  // 許可リストと利用回数を保存するデータベース。
+  // `wrangler d1 create snapask` の出力にある database_id に置き換える。
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "snapask",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // 秘密ではない設定値。
+  "vars": {
+    // Google Cloud で作る「ウェブ アプリケーション」のクライアントID(公開してよい値)。
+    "GOOGLE_WEB_CLIENT_ID": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
+    // 回答に使うモデルと、考える深さ(low / medium / high)。
+    "ASK_MODEL": "claude-sonnet-5-5",
+    "ASK_EFFORT": "medium",
+    // メモのタイトルと要点の下書きに使うモデル。
+    "SUMMARY_MODEL": "claude-haiku-5-5",
+    // 1回の質問で行うWeb検索の上限。
+    "MAX_SEARCHES": "3",
+    // 1人あたり1日の質問回数の上限(日本時間で日付が変わるとリセット)。"0" で無制限。
+    "DAILY_LIMIT": "50"
+  },
+
+  // 秘密の値は `wrangler secret put <名前>` で登録する(このファイルには書かない)。
+  "secrets": {
+    "required": ["ANTHROPIC_API_KEY", "SESSION_SECRET"]
+  }
+}

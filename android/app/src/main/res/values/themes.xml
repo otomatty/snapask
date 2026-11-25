@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 起動直後(Compose が描画を始めるまで)の背景色だけをここで決める。画面の見た目は ui/theme/Theme.kt。 -->
+    <style name="Theme.SnapAsk" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>
