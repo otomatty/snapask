@@ -12,6 +12,7 @@
 | 中継サーバー(`worker/`) | 実装済み。型チェックと自動テスト20件が通過 |
 | Android アプリ(`android/`) | 実装済み。**ビルドは未確認**(作業環境から Android のビルドに必要なサイトへ接続できなかったため)。初回ビルドでコンパイルエラーが出る可能性がある。対処は「8. うまくいかないとき」を参照 |
 | 実際の AI との通信 | 未確認(APIキーがないため)。仕様書に沿って実装し、応答を模したテストで確認している |
+| GitHub | 公開リポジトリ [otomatty/snapask](https://github.com/otomatty/snapask)。プッシュのたびに CI と機密情報の検出が走る(手順9) |
 
 ## 全体の流れ
 
@@ -49,9 +50,9 @@
 - Cloudflare
 - Claude Console(Claude API の利用。クレジットカードの登録が必要)
 
-**コードの置き場所(任意)**
+**コードの置き場所**
 
-zip を展開したフォルダで `git init` し、GitHub の非公開リポジトリに置いておくと、`.github/workflows/ci.yml` によってサーバーのテストとアプリのビルドが自動で走ります(手順9)。
+コードは公開リポジトリ [otomatty/snapask](https://github.com/otomatty/snapask) にあります。`git clone` して作業してください。公開リポジトリなので、**APIキー、`SESSION_SECRET`、署名鍵、パスワードは絶対にコミットしない**でください。秘密の値は Cloudflare の secret(手順5-2)と GitHub の Secrets(手順9)にだけ置きます。
 
 ---
 
@@ -141,6 +142,8 @@ npx wrangler d1 create snapask
 | `database_id` | いま表示された値 |
 | `GOOGLE_WEB_CLIENT_ID` | 手順3で控えたウェブ用クライアントID |
 
+この2つは秘密の値ではないので、書き換えたままコミットしてもかまいません。リポジトリを仮の値のままにしておきたい場合は、コミットせずに手元だけで使い、GitHub Actions からの公開(手順9)では Variables に登録した値が自動で入ります。
+
 テーブルを作ります。
 
 ```bash
@@ -215,7 +218,7 @@ cd android
 ### 6-3. 仲間に配る
 
 1. 仲間の Google アカウントを、**許可リスト**(手順5-4と同じコマンド)と、Google Cloud の**テストユーザー**(手順3)の両方に追加する。
-2. `app-release.apk` を送る。
+2. `app-release.apk` を送る(手順9-2を設定すれば、GitHub のリリースページの URL を送るだけで済む)。
 3. インストール時に「提供元不明のアプリ」の許可を求められたら、許可してもらう。
 
 ---
@@ -251,9 +254,38 @@ cd android
 
 ---
 
-## 9. GitHub Actions を使う場合(任意)
+## 9. GitHub Actions を使う
 
-リポジトリの Settings → Secrets and variables → Actions に登録すると、プッシュのたびに署名済みの APK が作られます(Actions の実行結果からダウンロードできます)。
+ワークフローは4つあります。登録が要るのはデプロイとリリースだけで、CI と機密情報の検出は何も登録しなくても動きます。
+
+| ワークフロー | 動くとき | 内容 | 登録が要るもの |
+|---|---|---|---|
+| CI(`ci.yml`) | `main` へのプッシュ、プルリクエスト | サーバーの型チェック・テスト・公開用ビルドの確認、アプリのビルドと lint、ワークフローの検査 | なし |
+| Secret scan(`secret-scan.yml`) | すべてのプッシュ、プルリクエスト、毎週月曜 | gitleaks で全履歴から API キーや秘密鍵を探す。鍵ファイルや `local.properties` などがコミットされていないかも調べる | なし |
+| Deploy worker(`deploy-worker.yml`) | `main` の `worker/` が変わったとき、手動 | テストのあと、データベースの更新とサーバーの公開 | 9-1 |
+| Release(`release.yml`) | `v0.1.0` のようなタグのプッシュ | 署名済み APK を作り、GitHub のリリースに添付 | 9-2 |
+
+登録はリポジトリの **Settings → Secrets and variables → Actions** で行います。Secrets は登録後に誰も読めなくなる秘密の値、Variables は公開してよい値です。
+
+### 9-1. サーバーを自動で公開する(任意)
+
+手元から `npm run deploy` する運用のままでよければ、登録は不要です(`SNAPASK_D1_DATABASE_ID` が無い間、このワークフローは何もしません)。
+
+Cloudflare のダッシュボードで API トークンを作ります。**My Profile → API Tokens → Create Token** で「Edit Cloudflare Workers」のテンプレートを選び、権限に **アカウント → D1 → 編集** を追加します。対象のアカウントは自分のものだけに絞ります。
+
+| 種類 | 名前 | 値 |
+|---|---|---|
+| Secrets | `CLOUDFLARE_API_TOKEN` | 作ったトークン |
+| Secrets | `CLOUDFLARE_ACCOUNT_ID` | ダッシュボードの Workers の画面右側にあるアカウントID |
+| Variables | `SNAPASK_D1_DATABASE_ID` | 手順5-1の `database_id` |
+| Variables | `SNAPASK_GOOGLE_WEB_CLIENT_ID` | ウェブ用クライアントID |
+| Variables | `SNAPASK_API_BASE_URL` | サーバーのURL(公開後の動作確認に使う) |
+
+`ANTHROPIC_API_KEY` と `SESSION_SECRET` は GitHub には登録しません。手順5-2で Cloudflare に登録した値がそのまま使われます。
+
+公開のたびに承認を挟みたい場合は、**Settings → Environments → production** で「Required reviewers」に自分を追加します。
+
+### 9-2. 署名済み APK をリリースする(任意)
 
 | 種類 | 名前 | 値 |
 |---|---|---|
@@ -264,7 +296,43 @@ cd android
 | Secrets | `SNAPASK_KEY_ALIAS` | `snapask` |
 | Secrets | `SNAPASK_KEY_PASSWORD` | 鍵のパスワード |
 
-登録しなくてもビルド自体は走るので、コンパイルが通るかどうかの確認には使えます(その場合の APK では Google ログインは通りません)。
+登録したら、タグを付けてプッシュします。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+数分で [Releases](https://github.com/otomatty/snapask/releases) に `snapask-v0.1.0.apk` と、そのハッシュ値(`.sha256`)が載ります。仲間にはこのページの URL を送れば済みます。
+
+- リポジトリが公開なので、リリースの APK は誰でもダウンロードできます。アプリに入っているのはサーバーの URL とウェブ用クライアントID(どちらも公開してよい値)だけで、許可リストにないアカウントではログインできません。
+- アプリの更新を端末に入れるには、前の版より大きいバージョン番号が必要です。番号はワークフローの実行回数から自動で付くので、同じ鍵で作っていれば上書きでインストールできます。
+- CI(`ci.yml`)が作る APK はデバッグ用の鍵で署名されるため、Google ログインは通りません。CI のビルドはコンパイルの確認用です。
+
+### 9-3. GitHub 側の機密情報の保護
+
+公開リポジトリでは、GitHub 自身も既知の形式のキー(Anthropic、Google、Cloudflare など)を見張っています。**Settings → Advanced Security** で次の2つが有効になっているか確かめてください。
+
+| 項目 | 内容 |
+|---|---|
+| Secret Protection(Secret scanning) | コミットされたキーを見つけて通知する。公開リポジトリでは最初から有効 |
+| Push protection | キーを含むプッシュを、GitHub に届く前に止める |
+
+あわせて **Dependabot alerts** を有効にすると、依存パッケージに脆弱性が見つかったときに通知されます(更新のプルリクエストは `.github/dependabot.yml` の設定で毎週月曜に届きます)。
+
+### 機密情報が検出されたとき
+
+Secret scan が失敗した、または GitHub から通知が来たときは、次の順に対処します。**履歴から消すより先に、値を無効にする**ことが大事です。公開リポジトリに一度でも載った値は、すでに誰かに読まれたものとして扱います。
+
+1. 漏れた値を無効にして作り直す。
+   - Anthropic の API キー: Claude Console でキーを削除し、新しいキーを `npx wrangler secret put ANTHROPIC_API_KEY` で登録
+   - `SESSION_SECRET`: 新しい値を登録(全員がログアウトされる)
+   - Cloudflare の API トークン: ダッシュボードで削除して作り直し、GitHub の Secrets を更新
+   - 署名鍵(`snapask.jks`)とそのパスワード: 新しい鍵を作り、Google Cloud の Android 用クライアントの SHA-1 を差し替え、全員にアプリを入れ直してもらう
+2. 該当のコミットを履歴から消す(まだ `main` に入っていなければ、ブランチを作り直すだけでよい)。`main` に入ってしまった場合は [git filter-repo](https://github.com/newren/git-filter-repo) で消して強制プッシュする。
+3. Actions の Secret scan を手動で実行し(**Actions → Secret scan → Run workflow**)、通ることを確かめる。
+
+テスト用の値など、秘密ではないものが検出された場合は、`.gitleaks.toml` の除外に、ファイルと値の両方で絞って追加します。
 
 ---
 

@@ -1,0 +1,79 @@
+name: Release
+
+# v0.1.0 のようなタグを付けてプッシュすると、署名済みの APK を作ってリリースに添付する。
+#   git tag v0.1.0 && git push origin v0.1.0
+# リポジトリは公開なので、リリースの APK は誰でもダウンロードできる。
+# アプリに入るのはサーバーの URL とウェブ用クライアントID(どちらも公開してよい値)だけで、
+# 許可リストにない Google アカウントではログインできない。
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # リリースの作成
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: 署名済み APK を作る
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    defaults:
+      run:
+        working-directory: android
+    env:
+      SNAPASK_API_BASE_URL: ${{ vars.SNAPASK_API_BASE_URL }}
+      SNAPASK_GOOGLE_WEB_CLIENT_ID: ${{ vars.SNAPASK_GOOGLE_WEB_CLIENT_ID }}
+      SNAPASK_KEYSTORE_PASSWORD: ${{ secrets.SNAPASK_KEYSTORE_PASSWORD }}
+      SNAPASK_KEY_ALIAS: ${{ secrets.SNAPASK_KEY_ALIAS }}
+      SNAPASK_KEY_PASSWORD: ${{ secrets.SNAPASK_KEY_PASSWORD }}
+      KEYSTORE_BASE64: ${{ secrets.SNAPASK_KEYSTORE_BASE64 }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 必要な設定がそろっているか確かめる
+        run: |
+          missing=""
+          for name in SNAPASK_API_BASE_URL SNAPASK_GOOGLE_WEB_CLIENT_ID SNAPASK_KEYSTORE_PASSWORD SNAPASK_KEY_ALIAS SNAPASK_KEY_PASSWORD KEYSTORE_BASE64; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::未設定:$missing(docs/SETUP.md の 9 章を参照)"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: 署名鍵を配置する
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/snapask.jks"
+          echo "SNAPASK_KEYSTORE_FILE=$RUNNER_TEMP/snapask.jks" >> "$GITHUB_ENV"
+
+      - name: ビルドする
+        env:
+          SNAPASK_VERSION_CODE: ${{ github.run_number }}
+        run: SNAPASK_VERSION_NAME="${TAG#v}" ./gradlew assembleRelease --stacktrace
+
+      - name: 署名鍵を消す
+        if: always()
+        run: rm -f "$RUNNER_TEMP/snapask.jks"
+
+      - name: リリースを作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="snapask-$TAG.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          gh release create "$TAG" "$apk" "$apk.sha256" --title "$TAG" --generate-notes

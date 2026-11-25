@@ -1,0 +1,16 @@
+# gitleaks の設定。既定のルール(Anthropic、Google、Cloudflare、GitHub などのキーや秘密鍵)をすべて使う。
+# 除外は、テスト専用と分かっている値だけに絞る。新しく除外を足すときは、ファイルと値の両方で絞ること。
+title = "snapask"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "サーバーのテスト専用の値(本番では使われない)"
+condition = "AND"
+paths = ['''^worker/vitest\.config\.ts$''']
+regexTarget = "line"
+regexes = [
+  '''ANTHROPIC_API_KEY: "test-api-key"''',
+  '''SESSION_SECRET: "test-session-secret-[0-9a-f]+"''',
+]

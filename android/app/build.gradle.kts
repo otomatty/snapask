@@ -27,8 +27,9 @@ android {
         applicationId = "app.snapask"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // リリース用のワークフローはタグ(v0.2.0 など)と実行番号から値を渡す。手元のビルドは既定値になる。
+        versionCode = config("SNAPASK_VERSION_CODE").toIntOrNull() ?: 1
+        versionName = config("SNAPASK_VERSION_NAME").ifEmpty { "0.1.0" }
 
         buildConfigField("String", "API_BASE_URL", "\"${config("SNAPASK_API_BASE_URL")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${config("SNAPASK_GOOGLE_WEB_CLIENT_ID")}\"")

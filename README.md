@@ -1,8 +1,12 @@
 # SnapAsk(仮称)
 
+[![CI](https://github.com/otomatty/snapask/actions/workflows/ci.yml/badge.svg)](https://github.com/otomatty/snapask/actions/workflows/ci.yml)
+[![Secret scan](https://github.com/otomatty/snapask/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/otomatty/snapask/actions/workflows/secret-scan.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 スクショを撮ったら、そのまま AI に質問できる Android アプリ。AI は Web を調べ、出典を付けて、分かる言葉で説明する。理解できたことはメモとして端末に残す。
 
-自分と近しい仲間で使う、クローズドなアプリ。
+自分と近しい仲間で使うアプリ。コードは公開しているが、使えるのはサーバーの許可リストに載せた Google アカウントだけ。
 
 ## 構成
 
@@ -10,6 +14,7 @@
 android/   Android アプリ(Kotlin, Jetpack Compose)
 worker/    中継サーバー(Cloudflare Workers + D1)
 docs/      PRD、セットアップ手順書、図
+.github/   CI、機密情報の検出、デプロイ、リリース、Dependabot
 ```
 
 ```
@@ -69,3 +74,24 @@ Android Studio で `android/` を開く。設定は `android/local.properties`(`
 
 - [docs/PRD.md](docs/PRD.md) — 要件
 - [docs/SETUP.md](docs/SETUP.md) — セットアップと運用
+
+## GitHub Actions
+
+| ワークフロー | 動くとき | 内容 |
+|---|---|---|
+| `ci.yml` | プッシュ、プルリクエスト | サーバーの型チェックとテスト、アプリのビルド、ワークフロー自体の検査 |
+| `secret-scan.yml` | プッシュ、プルリクエスト、毎週月曜 | gitleaks で全履歴から API キーや鍵を探す。鍵ファイルや設定ファイルがコミットされていないかも調べる |
+| `deploy-worker.yml` | `main` の `worker/` が変わったとき、手動 | テストのあとデータベースの更新とサーバーの公開(設定したときだけ動く) |
+| `release.yml` | `v0.1.0` のようなタグを付けたとき | 署名済み APK を作り、GitHub のリリースに添付 |
+
+必要な Secrets と Variables は [docs/SETUP.md の 9 章](docs/SETUP.md#9-github-actions-を使う)にある。
+
+## 機密情報の扱い
+
+このリポジトリは公開されている。API キー、セッション用の秘密の値、署名鍵、`local.properties`、`.dev.vars` はコミットしない(`.gitignore` 済み)。万一コミットしても CI の検出で止まる。秘密の値は Cloudflare の secret と GitHub の Secrets にだけ置く。
+
+検出されたときは、値を履歴から消すだけでは足りない。まずその値を無効にして作り直す(手順は [docs/SETUP.md](docs/SETUP.md#機密情報が検出されたとき))。
+
+## ライセンス
+
+[MIT](LICENSE)
