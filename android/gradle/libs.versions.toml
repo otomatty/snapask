@@ -1,7 +1,7 @@
 # 互いに動作実績のある組み合わせで固定している。
 # 上げるときは AGP / Kotlin / KSP / Compose BOM をまとめて見直すこと。
 [versions]
-agp = "8.7.3"
+agp = "9.5.2"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
 composeBom = "2024.12.01"
